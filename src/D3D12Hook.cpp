@@ -587,6 +587,9 @@ bool D3D12Hook::hook() {
     }};
 
     // Find the command queue offset in the swapchain
+    spdlog::info("[RE9-Wine] direct scan start");
+    spdlog::default_logger()->flush();
+
     for (auto i = 0; i < 512 * sizeof(void*); i += sizeof(void*)) {
         const auto base = (uintptr_t)swap_chain1 + i;
 
@@ -604,14 +607,24 @@ bool D3D12Hook::hook() {
         }
     }
 
+    spdlog::info("[RE9-Wine] direct scan done, offset={:x}", s_command_queue_offset);
+    spdlog::default_logger()->flush();
+
     // Wine/D3DMetal: the queue may be stored under a different (wrapped) pointer, identify it by refcount
     if (s_command_queue_offset == 0 && wine) {
+        spdlog::info("[RE9-Wine] refcount scan start");
+        spdlog::default_logger()->flush();
         s_command_queue_offset = scan_for_refcount_match(swap_chain1, command_queue_refcount_probe);
+        spdlog::info("[RE9-Wine] refcount scan done, offset={:x}", s_command_queue_offset);
+        spdlog::default_logger()->flush();
 
         if (s_command_queue_offset != 0) {
             spdlog::info("Found command queue offset via Wine refcount scan: {:x}", s_command_queue_offset);
         }
     }
+
+    spdlog::info("[RE9-Wine] hardcoded fallback start");
+    spdlog::default_logger()->flush();
 
     // Wine/D3DMetal last resort: hardcoded offset reported in upstream PR #1589
     if (s_command_queue_offset == 0 && wine) {
@@ -628,11 +641,16 @@ bool D3D12Hook::hook() {
         }
     }
 
+    spdlog::info("[RE9-Wine] hardcoded fallback done, offset={:x}", s_command_queue_offset);
+    spdlog::default_logger()->flush();
+
     auto target_swapchain = swap_chain;
 
     // Scan throughout the swapchain for a valid pointer to scan through
     // this is usually only necessary for Proton
     if (s_command_queue_offset == 0) {
+        spdlog::info("[RE9-Wine] nested scan start");
+        spdlog::default_logger()->flush();
         bool should_break = false;
 
         for (auto base = 0; base < 512 * sizeof(void*); base += sizeof(void*)) {
